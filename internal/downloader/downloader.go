@@ -6,21 +6,10 @@ import (
 	"os"
 	"os/exec"
 
-	"github.com/frknue/youtube_twitch_channel_automation/internal/config"
-	"github.com/frknue/youtube_twitch_channel_automation/internal/projectpath"
 	"github.com/frknue/youtube_twitch_channel_automation/internal/scraper"
 )
 
-func Downloader(runID string, clipData []scraper.Clip) error {
-	configPath := projectpath.Root + "/configs/config.yaml"
-	config, err := config.LoadConfig(configPath)
-	if err != nil {
-		return fmt.Errorf("failed to load config: %w", err)
-	}
-
-	cliPath := projectpath.Root + "/bin/TwitchDownloaderCLI"
-	outputDir := projectpath.Root + config.Downloader.OutputPath + runID
-
+func Downloader(runID string, clipData []scraper.Clip, cliPath string, outputDir string) error {
 	// Create the output directory if it doesn't exist
 	if _, err := os.Stat(outputDir); os.IsNotExist(err) {
 		err := os.Mkdir(outputDir, 0755)

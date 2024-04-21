@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"net/url"
 	"strings"
+	"time"
 	"unicode"
 )
 
@@ -46,4 +47,13 @@ func ExtractFileName(title string) string {
         }
         return r
     }, title)
+}
+
+func ParseDuration(durationStr string) float64 {
+	duration, err := time.ParseDuration(strings.TrimSuffix(durationStr, "s") + "s")
+	if err != nil {
+		fmt.Println("Error parsing duration:", err)
+		return 0
+	}
+	return duration.Seconds()
 }

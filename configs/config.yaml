@@ -1,5 +1,6 @@
 downloader:
   output_path: "/output/"
+  max_duration_in_seconds: 660
 scraper:
   twitch_tracker:
     url: "https://twitchtracker.com/games"

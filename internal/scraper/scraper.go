@@ -23,6 +23,7 @@ type Clip struct {
 	Created   string
 	ClipID    string
 	FileName  string
+	DurationSeconds float64
 }
 
 
@@ -32,7 +33,7 @@ func getHTML(url string) (string, error) {
 		chromedp.NoFirstRun,
 		chromedp.NoDefaultBrowserCheck,
 		chromedp.DisableGPU,
-		chromedp.Headless,
+		// chromedp.Headless,
 		chromedp.WindowSize(1920, 1080),
 		chromedp.UserAgent("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/87.0.4280.88 Safari/537.36"),
 		// Add security flags
@@ -52,7 +53,8 @@ func getHTML(url string) (string, error) {
 	if err := chromedp.Run(ctx,
 		chromedp.Navigate(url),
 		// Wait for an element that indicates the page has fully loaded
-		chromedp.Sleep(2000), // simulate more realistic browsing by adding a delay
+		//TODO: Timeout is not working properly
+		chromedp.Sleep(5000), // simulate more realistic browsing by adding a delay
 		chromedp.WaitVisible("body", chromedp.ByQuery), // adjust the selector to a more common one if necessary
 		chromedp.OuterHTML("html", &html),
 	); err != nil {
@@ -62,10 +64,9 @@ func getHTML(url string) (string, error) {
 	return html, nil
 }
 
-
-
-func getClipsData(html string) []Clip {
+func getClipsData(html string, maxDurationInSeconds float64) []Clip {
 	var clips []Clip
+	var totalDuration float64
 
 	// Create a new document from the HTML string
 	doc, err := goquery.NewDocumentFromReader(strings.NewReader(html))
@@ -77,6 +78,10 @@ func getClipsData(html string) []Clip {
 
 	// Get the element with the id "clips" and find each "clip-entity" within it
 	doc.Find("#clips .clip-entity").Each(func(i int, s *goquery.Selection) {
+		if totalDuration >= maxDurationInSeconds { 
+			fmt.Println("Total duration limit reached.")
+			return
+		}
 		// Extract details for each clip
 		title := s.Find(".clip-title").Text()
 		fileName := ExtractFileName(title)
@@ -95,6 +100,9 @@ func getClipsData(html string) []Clip {
 		duration := s.Find(".clip-duration").Text()
 		views := s.Find(".clip-views").Text()
 		created := s.Find(".clip-created").Text()
+		durationSeconds := ParseDuration(duration)
+
+		totalDuration += durationSeconds
 
 		// Append the details to the clips slice
 		clips = append(clips, Clip{
@@ -107,8 +115,10 @@ func getClipsData(html string) []Clip {
 			Created:   created,
 			ClipID:    clipID,
 			FileName: fileName,
+			DurationSeconds: durationSeconds,
 		})
 	})
+	log.Printf("Total duration of clips: %.2f seconds\n", totalDuration)
 
 	return clips
 }
@@ -128,7 +138,7 @@ func Scrape() ([]Clip, error) {
 		"/clips#" + 
 		config.Scraper.TwitchTracker.TimeStart +
 		"-" + config.Scraper.TwitchTracker.TimeEnd
-	
+
 	html, err := getHTML(url)
 	log.Println("Successfully fetched HTML data.")
 
@@ -137,7 +147,7 @@ func Scrape() ([]Clip, error) {
 	}
 
 	log.Println("Getting clips data...")
-	clips := getClipsData(html)
+	clips := getClipsData(html, config.Downloader.MaxDurationInSeconds)
 	log.Println("Successfully extracted clips data.")
 
 	return clips, nil

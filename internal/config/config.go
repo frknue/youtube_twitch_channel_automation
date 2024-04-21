@@ -27,8 +27,8 @@ type TwitchTrackerConfig struct {
 
 // DownloaderConfig holds the configuration for the downloader part of the application.
 type DownloaderConfig struct {
-	OutputFormat string `yaml:"output_format"`
 	OutputPath  string `yaml:"output_path"`
+	MaxDurationInSeconds float64 `yaml:"max_duration_in_seconds"`
 }
 
 // LoadConfig reads configuration from the specified file path and unmarshals it into Config struct.
