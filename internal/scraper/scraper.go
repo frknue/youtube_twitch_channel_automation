@@ -14,18 +14,18 @@ import (
 )
 
 type Clip struct {
-	Channel	  string
-	Title     string
-	URL       string
-	Thumbnail string
-	Duration  string
-	Views     string
-	Created   string
-	ClipID    string
-	FileName  string
+	RunID           string
+	Channel         string
+	Title           string
+	URL             string
+	Thumbnail       string
+	Duration        string
+	Views           string
+	Created         string
+	ClipID          string
+	FileName        string
 	DurationSeconds float64
 }
-
 
 func getHTML(url string) (string, error) {
 	// Create context with non-headless options and more realistic parameters
@@ -33,7 +33,7 @@ func getHTML(url string) (string, error) {
 		chromedp.NoFirstRun,
 		chromedp.NoDefaultBrowserCheck,
 		chromedp.DisableGPU,
-		// chromedp.Headless,
+		chromedp.Headless,
 		chromedp.WindowSize(1920, 1080),
 		chromedp.UserAgent("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/87.0.4280.88 Safari/537.36"),
 		// Add security flags
@@ -52,9 +52,7 @@ func getHTML(url string) (string, error) {
 	var html string
 	if err := chromedp.Run(ctx,
 		chromedp.Navigate(url),
-		// Wait for an element that indicates the page has fully loaded
-		//TODO: Timeout is not working properly
-		chromedp.Sleep(5000), // simulate more realistic browsing by adding a delay
+		chromedp.Sleep(5000),                           // simulate more realistic browsing by adding a delay
 		chromedp.WaitVisible("body", chromedp.ByQuery), // adjust the selector to a more common one if necessary
 		chromedp.OuterHTML("html", &html),
 	); err != nil {
@@ -78,7 +76,7 @@ func getClipsData(html string, maxDurationInSeconds float64) []Clip {
 
 	// Get the element with the id "clips" and find each "clip-entity" within it
 	doc.Find("#clips .clip-entity").Each(func(i int, s *goquery.Selection) {
-		if totalDuration >= maxDurationInSeconds { 
+		if totalDuration >= maxDurationInSeconds {
 			fmt.Println("Total duration limit reached.")
 			return
 		}
@@ -106,15 +104,15 @@ func getClipsData(html string, maxDurationInSeconds float64) []Clip {
 
 		// Append the details to the clips slice
 		clips = append(clips, Clip{
-			Channel:   channel,
-			Title:     title,
-			URL:        url,
-			Thumbnail: thumbnail,
-			Duration:  duration,
-			Views:     views,
-			Created:   created,
-			ClipID:    clipID,
-			FileName: fileName,
+			Channel:         channel,
+			Title:           title,
+			URL:             url,
+			Thumbnail:       thumbnail,
+			Duration:        duration,
+			Views:           views,
+			Created:         created,
+			ClipID:          clipID,
+			FileName:        fileName,
 			DurationSeconds: durationSeconds,
 		})
 	})
@@ -132,10 +130,10 @@ func Scrape() ([]Clip, error) {
 		return nil, err
 	}
 
-	url := config.Scraper.TwitchTracker.URL + 
+	url := config.Scraper.TwitchTracker.URL +
 		"/" +
 		config.Scraper.TwitchTracker.GameID +
-		"/clips#" + 
+		"/clips#" +
 		config.Scraper.TwitchTracker.TimeStart +
 		"-" + config.Scraper.TwitchTracker.TimeEnd
 

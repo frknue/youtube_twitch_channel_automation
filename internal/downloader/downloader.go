@@ -2,19 +2,19 @@ package downloader
 
 import (
 	"fmt"
-
 	"os"
 	"os/exec"
 
 	"github.com/frknue/youtube_twitch_channel_automation/internal/scraper"
 )
 
-func Downloader(runID string, clipData []scraper.Clip, cliPath string, outputDir string) error {
+func Downloader(runID string, clipData []scraper.Clip, cliPath string, outputDir string) ([]string, error) {
+	var downloadedFiles []string
 	// Create the output directory if it doesn't exist
 	if _, err := os.Stat(outputDir); os.IsNotExist(err) {
 		err := os.Mkdir(outputDir, 0755)
 		if err != nil {
-			return fmt.Errorf("failed to create output directory: %w", err)
+			return nil, fmt.Errorf("failed to create output directory: %w", err)
 		}
 		fmt.Println("Output directory created successfully.")
 	}
@@ -34,10 +34,12 @@ func Downloader(runID string, clipData []scraper.Clip, cliPath string, outputDir
 			continue // proceed with next clip despite the error
 		}
 
+		// Append the downloaded file path to the slice
+		downloadedFiles = append(downloadedFiles, outputPath)
 		// Optionally print the successful download message
 		fmt.Printf("Downloading clip %s completed successfully.\n", clip.ClipID)
 		fmt.Printf("Command output: %s\n", string(cmdOutput))
 	}
 
-	return nil
+	return downloadedFiles, nil
 }
