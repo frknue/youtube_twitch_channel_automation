@@ -22,3 +22,10 @@ func TestCheckClipID(t *testing.T) {
 		fmt.Println(err)
 	}
 }
+
+func TestPrintClipIDs(t *testing.T) {
+	err := PrintClipIDs()
+	if err != nil {
+		fmt.Println(err)
+	}
+}

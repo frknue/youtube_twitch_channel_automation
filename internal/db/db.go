@@ -1,6 +1,7 @@
 package db
 
 import (
+	"fmt"
 	"log"
 
 	badger "github.com/dgraph-io/badger/v4"
@@ -66,4 +67,40 @@ func CheckClipID(clipID string) (bool, error) {
 	}
 
 	return true, nil
+}
+
+func PrintClipIDs() error {
+	// Open the Badger database located in the specified directory
+	db, err := badger.Open(badger.DefaultOptions("/tmp/badger"))
+	if err != nil {
+		log.Fatalf("Failed to open database: %v", err)
+	}
+	defer db.Close()
+
+	// Iterate over all key-value pairs in the database
+	err = db.View(func(txn *badger.Txn) error {
+		opts := badger.DefaultIteratorOptions
+		opts.PrefetchSize = 10
+		it := txn.NewIterator(opts)
+		defer it.Close()
+
+		for it.Rewind(); it.Valid(); it.Next() {
+			item := it.Item()
+			key := item.Key()
+			err := item.Value(func(val []byte) error {
+				fmt.Printf("Key: %s, Value: %s\n", key, val)
+				return nil
+			})
+			if err != nil {
+				return err
+			}
+		}
+		return nil
+	})
+
+	if err != nil {
+		log.Fatalf("Failed to iterate over database: %v", err)
+	}
+
+	return nil
 }

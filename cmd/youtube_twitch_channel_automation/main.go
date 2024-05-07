@@ -39,14 +39,13 @@ func main() {
 	}
 
 	log.Printf("Run ID: %s\n", runID)
-	clipsData, err := scraper.Scrape(outputDir)
+	clipsData, err := scraper.Scrape(outputDir, runID)
 	if err != nil {
 		log.Fatalf("Scraper failed with error: %v", err)
 	}
 
 	if len(clipsData) == 0 {
 		log.Println("No clips found.")
-		return
 	}
 
 	// Add the run ID to the Run struct and save it to the output directory as a JSON file

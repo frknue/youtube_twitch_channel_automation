@@ -29,6 +29,11 @@ type Clip struct {
 }
 
 func getHTML(url string) (string, error) {
+	// Define the maximum number of retries
+	const maxRetries = 5
+	var html string
+	var err error
+
 	// Create context with non-headless options and more realistic parameters
 	opts := []chromedp.ExecAllocatorOption{
 		chromedp.NoFirstRun,
@@ -43,27 +48,39 @@ func getHTML(url string) (string, error) {
 		chromedp.Flag("disable-setuid-sandbox", true),
 	}
 
-	allocCtx, cancel := chromedp.NewExecAllocator(context.Background(), opts...)
-	defer cancel()
+	for i := 0; i < maxRetries; i++ {
+		allocCtx, cancel := chromedp.NewExecAllocator(context.Background(), opts...)
+		// Create a new context from the allocator
+		ctx, cancelCtx := chromedp.NewContext(allocCtx, chromedp.WithLogf(log.Printf))
+		defer cancel()
 
-	// Create a new context from the allocator
-	ctx, cancel := chromedp.NewContext(allocCtx, chromedp.WithLogf(log.Printf))
-	defer cancel()
+		// Try to navigate to the URL and get the HTML content
+		if err = chromedp.Run(ctx,
+			chromedp.Navigate(url),
+			chromedp.WaitVisible("#clips-period", chromedp.ByQuery),
+			chromedp.OuterHTML("html", &html),
+		); err != nil {
+			log.Printf("Attempt %d failed: %v", i+1, err)
+			cancelCtx() // Ensure we cancel the context to clean up resources
+			continue
+		}
 
-	var html string
-	if err := chromedp.Run(ctx,
-		chromedp.Navigate(url),
-		chromedp.Sleep(5000),                           // simulate more realistic browsing by adding a delay
-		chromedp.WaitVisible("body", chromedp.ByQuery), // adjust the selector to a more common one if necessary
-		chromedp.OuterHTML("html", &html),
-	); err != nil {
-		return "", err
+		// Check if the HTML contains necessary data
+		if strings.Contains(html, "clips") {
+			cancelCtx() // Ensure we cancel the context after a successful fetch
+			return html, nil
+		} else {
+			log.Printf("Attempt %d fetched HTML but didn't contain necessary data.", i+1)
+			cancelCtx() // Ensure we cancel the context to clean up resources
+			continue
+		}
 	}
 
-	return html, nil
+	// Return the last error after exhausting all retries
+	return "", fmt.Errorf("failed to fetch valid HTML after %d attempts: %v", maxRetries, err)
 }
 
-func getClipsData(html string, maxDurationInSeconds float64, outputDir string) []Clip {
+func getClipsData(html string, maxDurationInSeconds float64, outputDir string, runID string) []Clip {
 	var clips []Clip
 	var totalDuration float64
 
@@ -107,6 +124,7 @@ func getClipsData(html string, maxDurationInSeconds float64, outputDir string) [
 
 		// Append the details to the clips slice
 		clips = append(clips, Clip{
+			RunID:           runID,
 			Channel:         channel,
 			Title:           title,
 			URL:             url,
@@ -125,7 +143,7 @@ func getClipsData(html string, maxDurationInSeconds float64, outputDir string) [
 	return clips
 }
 
-func Scrape(outputDir string) ([]Clip, error) {
+func Scrape(outputDir string, runID string) ([]Clip, error) {
 	configPath := projectpath.Root + "/configs/config.yaml"
 	config, err := config.LoadConfig(configPath)
 
@@ -149,7 +167,7 @@ func Scrape(outputDir string) ([]Clip, error) {
 	}
 
 	log.Println("Getting clips data...")
-	clips := getClipsData(html, config.Downloader.MaxDurationInSeconds, outputDir)
+	clips := getClipsData(html, config.Downloader.MaxDurationInSeconds, outputDir, runID)
 	log.Println("Successfully extracted clips data.")
 
 	return clips, nil

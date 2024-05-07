@@ -1,7 +1,7 @@
 package scraper
 
 import (
-	"fmt"
+	"encoding/json"
 	"log"
 	"os"
 	"testing"
@@ -10,6 +10,12 @@ import (
 	"github.com/frknue/youtube_twitch_channel_automation/internal/projectpath"
 	"github.com/google/uuid"
 )
+
+type Run struct {
+	RunID     string
+	Config    *config.Config
+	ClipsData []Clip
+}
 
 func TestScraper(t *testing.T) {
 	runID := uuid.New().String()
@@ -27,7 +33,7 @@ func TestScraper(t *testing.T) {
 		log.Fatalf("Failed to create output directory: %v", err)
 	}
 
-	clipsData, err := Scrape(outputDir)
+	clipsData, err := Scrape(outputDir, runID)
 
 	if err != nil {
 		log.Fatalf("Scraper failed with error: %v", err)
@@ -37,5 +43,23 @@ func TestScraper(t *testing.T) {
 		log.Println("No clips found.")
 		return
 	}
-	fmt.Println(clipsData)
+
+	// Add the run ID to the Run struct and save it to the output directory as a JSON file
+	run := Run{
+		RunID:     runID,
+		Config:    config,
+		ClipsData: clipsData,
+	}
+
+	// Save run data to the output directory as a JSON file
+	jsonData, err := json.Marshal(run)
+	if err != nil {
+		log.Fatalf("Failed to marshal clips data: %v", err)
+	}
+	jsonFilePath := outputDir + "/run.json"
+	if err := os.WriteFile(jsonFilePath, jsonData, 0644); err != nil {
+		log.Fatalf("Failed to save JSON file: %v", err)
+	}
+
+	log.Printf("Saved %d clips to %s.\n", len(clipsData), jsonFilePath)
 }
