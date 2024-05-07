@@ -5,72 +5,62 @@ import (
 	"os"
 	"os/exec"
 	"strings"
+
+	"github.com/frknue/youtube_twitch_channel_automation/internal/scraper"
 )
 
-func deleteTempFiles(files []string) {
-	// Delete video files
-	for _, file := range files {
-		if err := os.Remove(file); err != nil {
-			fmt.Printf("Failed to delete temp file %s: %v\n", file, err)
-		}
-	}
-	// Delete filelist.txt
-	if err := os.Remove("filelist.txt"); err != nil {
-		fmt.Printf("Failed to delete filelist.txt: %v\n", err)
-	}
-}
-
-// ConcatenateVideos takes a slice of file paths and an output file path, and concatenates the videos into a single file.
-func ReencodeVideo(inputFile, outputFile string) error {
-	fmt.Printf("Re-encoding video %s to %s\n", inputFile, outputFile)
+// ReencodeVideo re-encodes video files to a format optimized for YouTube, adds the channel name as a watermark, and overwrites the original.
+func ReencodeVideo(inputFile, channelName string) error {
+	tempOutputFile := inputFile + "_temp.mp4" // Temporary output file
+	fmt.Printf("Re-encoding video %s to %s\n", inputFile, tempOutputFile)
 	cmd := exec.Command(
 		"ffmpeg",
 		"-i", inputFile,
-		"-c:v", "libx264", "-crf", "23", "-preset", "fast",
+		"-c:v", "libx264", "-preset", "fast", "-crf", "22",
+		"-vf", fmt.Sprintf("scale=1920:1080,drawtext=text='%s':x=w-tw-10:y=h-th-10:fontcolor=white@0.8:fontsize=24:box=1:boxcolor=black@0.5:boxborderw=5", channelName),
 		"-c:a", "aac", "-b:a", "192k",
-		"-strict", "experimental",
-		outputFile,
+		tempOutputFile,
 	)
 	output, err := cmd.CombinedOutput()
 	if err != nil {
 		return fmt.Errorf("ffmpeg re-encoding error: %s, output: %s", err, output)
 	}
+
+	if err := os.Rename(tempOutputFile, inputFile); err != nil {
+		return fmt.Errorf("failed to overwrite original video file: %v", err)
+	}
 	return nil
 }
 
-func ConcatenateVideos(videoFiles []string, outputFile string) error {
-	tempFileList := "filelist.txt"
-	content := strings.Builder{}
-	reencodedFiles := make([]string, len(videoFiles))
+// ConcatenateVideos concatenates a slice of Clip structs into a single file.
+func ConcatenateVideos(clipsData []scraper.Clip, outputFile string) error {
+	inputs := strings.Builder{}
+	filterComplex := strings.Builder{}
 
-	for i, file := range videoFiles {
-		outputFile := fmt.Sprintf("temp%d.mp4", i)
-		if err := ReencodeVideo(file, outputFile); err != nil {
+	for i, clip := range clipsData {
+		if err := ReencodeVideo(clip.FilePath, clip.Channel); err != nil {
 			return err
 		}
-		reencodedFiles[i] = outputFile
-		content.WriteString(fmt.Sprintf("file '%s'\n", outputFile))
+		inputs.WriteString(fmt.Sprintf("-i '%s' ", clip.FilePath))
+		filterComplex.WriteString(fmt.Sprintf("[%d:v:0][%d:a:0]", i, i))
 	}
 
-	if err := os.WriteFile(tempFileList, []byte(content.String()), 0644); err != nil {
-		return fmt.Errorf("failed to write file list: %v", err)
-	}
+	filterComplex.WriteString(fmt.Sprintf("concat=n=%d:v=1:a=1[v][a]", len(clipsData)))
 
-	cmd := exec.Command(
-		"ffmpeg",
-		"-f", "concat",
-		"-safe", "0",
-		"-i", tempFileList,
-		"-c", "copy",
-		outputFile,
-	)
+	cmdString := fmt.Sprintf("ffmpeg %s -filter_complex '%s' -map '[v]' -map '[a]' -c:v libx264 -preset fast -crf 22 -c:a aac -b:a 192k '%s'", inputs.String(), filterComplex.String(), outputFile)
+	cmd := exec.Command("bash", "-c", cmdString)
 	output, err := cmd.CombinedOutput()
 	if err != nil {
 		return fmt.Errorf("ffmpeg concat error: %s, output: %s", err, output)
 	}
 
-	deleteTempFiles(reencodedFiles)
-
 	fmt.Printf("Concatenation output:\n%s\n", output)
+	return nil
+}
+
+func VideoCreator(clipsData []scraper.Clip, outputFile string) error {
+	if err := ConcatenateVideos(clipsData, outputFile); err != nil {
+		return err
+	}
 	return nil
 }

@@ -38,7 +38,7 @@ func main() {
 	}
 
 	log.Printf("Run ID: %s\n", runID)
-	clipsData, err := scraper.Scrape()
+	clipsData, err := scraper.Scrape(outputDir)
 	if err != nil {
 		log.Fatalf("Scraper failed with error: %v", err)
 	}
@@ -67,7 +67,7 @@ func main() {
 
 	log.Printf("Saved %d clips to %s.\n", len(clipsData), jsonFilePath)
 	log.Println("Starting the download process...")
-	videoFiles, err := downloader.Downloader(runID, clipsData, cliPath, outputDir)
+	err = downloader.Downloader(runID, clipsData, cliPath, outputDir)
 	if err != nil {
 		log.Fatalf("Downloader failed with error: %v", err)
 	}
@@ -75,7 +75,9 @@ func main() {
 	log.Println("Download process completed successfully.")
 
 	outputFile := outputDir + "/" + runID + ".mp4"
-	err = video.ConcatenateVideos(videoFiles, outputFile)
+	// err = video.ConcatenateVideos(videoFiles, outputFile)
+	err = video.VideoCreator(clipsData, outputFile)
+
 	if err != nil {
 		log.Fatalf("Video concatenation failed: %v", err)
 	}

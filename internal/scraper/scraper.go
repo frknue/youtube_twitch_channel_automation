@@ -25,6 +25,7 @@ type Clip struct {
 	ClipID          string
 	FileName        string
 	DurationSeconds float64
+	FilePath        string
 }
 
 func getHTML(url string) (string, error) {
@@ -62,7 +63,7 @@ func getHTML(url string) (string, error) {
 	return html, nil
 }
 
-func getClipsData(html string, maxDurationInSeconds float64) []Clip {
+func getClipsData(html string, maxDurationInSeconds float64, outputDir string) []Clip {
 	var clips []Clip
 	var totalDuration float64
 
@@ -102,6 +103,8 @@ func getClipsData(html string, maxDurationInSeconds float64) []Clip {
 
 		totalDuration += durationSeconds
 
+		filePath := outputDir + "/" + clipID + ".mp4"
+
 		// Append the details to the clips slice
 		clips = append(clips, Clip{
 			Channel:         channel,
@@ -112,8 +115,9 @@ func getClipsData(html string, maxDurationInSeconds float64) []Clip {
 			Views:           views,
 			Created:         created,
 			ClipID:          clipID,
-			FileName:        fileName,
+			FileName:        fileName + ".mp4",
 			DurationSeconds: durationSeconds,
+			FilePath:        filePath,
 		})
 	})
 	log.Printf("Total duration of clips: %.2f seconds\n", totalDuration)
@@ -121,7 +125,7 @@ func getClipsData(html string, maxDurationInSeconds float64) []Clip {
 	return clips
 }
 
-func Scrape() ([]Clip, error) {
+func Scrape(outputDir string) ([]Clip, error) {
 	configPath := projectpath.Root + "/configs/config.yaml"
 	config, err := config.LoadConfig(configPath)
 
@@ -145,7 +149,7 @@ func Scrape() ([]Clip, error) {
 	}
 
 	log.Println("Getting clips data...")
-	clips := getClipsData(html, config.Downloader.MaxDurationInSeconds)
+	clips := getClipsData(html, config.Downloader.MaxDurationInSeconds, outputDir)
 	log.Println("Successfully extracted clips data.")
 
 	return clips, nil
