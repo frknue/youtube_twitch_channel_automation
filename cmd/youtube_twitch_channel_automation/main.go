@@ -6,6 +6,7 @@ import (
 	"os"
 
 	"github.com/frknue/youtube_twitch_channel_automation/internal/config"
+	"github.com/frknue/youtube_twitch_channel_automation/internal/db"
 	"github.com/frknue/youtube_twitch_channel_automation/internal/downloader"
 	"github.com/frknue/youtube_twitch_channel_automation/internal/projectpath"
 	"github.com/frknue/youtube_twitch_channel_automation/internal/scraper"
@@ -75,11 +76,17 @@ func main() {
 	log.Println("Download process completed successfully.")
 
 	outputFile := outputDir + "/" + runID + ".mp4"
-	// err = video.ConcatenateVideos(videoFiles, outputFile)
 	err = video.VideoCreator(clipsData, outputFile)
 
 	if err != nil {
 		log.Fatalf("Video concatenation failed: %v", err)
 	}
-	log.Println("Video concatenation completed successfully.")
+
+	// Store all processed clip ids in the database
+	for _, clip := range clipsData {
+		err = db.SaveClipID(clip.ClipID)
+		if err != nil {
+			log.Fatalf("Database failed with error: %v", err)
+		}
+	}
 }

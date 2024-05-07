@@ -59,8 +59,11 @@ func ConcatenateVideos(clipsData []scraper.Clip, outputFile string) error {
 }
 
 func VideoCreator(clipsData []scraper.Clip, outputFile string) error {
+	fmt.Println("Creating video...")
 	if err := ConcatenateVideos(clipsData, outputFile); err != nil {
 		return err
 	}
+
+	fmt.Println("Video created successfully.")
 	return nil
 }
