@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log"
 	"strings"
+	"time"
 
 	"github.com/PuerkitoBio/goquery"
 
@@ -31,6 +32,8 @@ type Clip struct {
 func getHTML(url string) (string, error) {
 	// Define the maximum number of retries
 	const maxRetries = 5
+	// Define the maximum number of scrolls
+	const maxScrolls = 4
 	var html string
 	var err error
 
@@ -42,7 +45,6 @@ func getHTML(url string) (string, error) {
 		chromedp.Headless,
 		chromedp.WindowSize(1920, 1080),
 		chromedp.UserAgent("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/87.0.4280.88 Safari/537.36"),
-		// Add security flags
 		chromedp.Flag("disable-web-security", true),
 		chromedp.Flag("no-sandbox", true),
 		chromedp.Flag("disable-setuid-sandbox", true),
@@ -50,33 +52,53 @@ func getHTML(url string) (string, error) {
 
 	for i := 0; i < maxRetries; i++ {
 		allocCtx, cancel := chromedp.NewExecAllocator(context.Background(), opts...)
-		// Create a new context from the allocator
 		ctx, cancelCtx := chromedp.NewContext(allocCtx, chromedp.WithLogf(log.Printf))
 		defer cancel()
 
 		// Try to navigate to the URL and get the HTML content
-		if err = chromedp.Run(ctx,
+		err = chromedp.Run(ctx,
 			chromedp.Navigate(url),
 			chromedp.WaitVisible("#clips-period", chromedp.ByQuery),
+		)
+		if err != nil {
+			log.Printf("Attempt %d navigation failed: %v", i+1, err)
+			cancelCtx()
+			continue
+		}
+
+		// Execute scrolling
+		for j := 0; j < maxScrolls; j++ {
+			err = chromedp.Run(ctx,
+				chromedp.Evaluate(`window.scrollTo(0, document.body.scrollHeight)`, nil),
+				chromedp.Sleep(2*time.Second), // Adjust sleep duration as needed
+			)
+			if err != nil {
+				log.Printf("Attempt %d scrolling failed at scroll %d: %v", i+1, j+1, err)
+				break
+			}
+		}
+
+		// Capture the HTML
+		err = chromedp.Run(ctx,
 			chromedp.OuterHTML("html", &html),
-		); err != nil {
-			log.Printf("Attempt %d failed: %v", i+1, err)
-			cancelCtx() // Ensure we cancel the context to clean up resources
+		)
+		if err != nil {
+			log.Printf("Attempt %d failed to capture HTML: %v", i+1, err)
+			cancelCtx()
 			continue
 		}
 
 		// Check if the HTML contains necessary data
 		if strings.Contains(html, "clips") {
-			cancelCtx() // Ensure we cancel the context after a successful fetch
+			cancelCtx()
 			return html, nil
 		} else {
 			log.Printf("Attempt %d fetched HTML but didn't contain necessary data.", i+1)
-			cancelCtx() // Ensure we cancel the context to clean up resources
+			cancelCtx()
 			continue
 		}
 	}
 
-	// Return the last error after exhausting all retries
 	return "", fmt.Errorf("failed to fetch valid HTML after %d attempts: %v", maxRetries, err)
 }
 
