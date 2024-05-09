@@ -23,10 +23,14 @@ type Run struct {
 
 func main() {
 	log.Println("Starting the application...")
-	// Create a unique run ID using the UUID library
+	// Create lock
+	if err := db.CreateLock(); err != nil {
+		log.Fatalf("Failed to create lock: %v", err)
+	}
+	defer db.RemoveLock() // Ensure lock is always removed
+
 	runID := uuid.New().String()
 	configPath := projectpath.Root + "/configs/config.yaml"
-
 	config, err := config.LoadConfig(configPath)
 	if err != nil {
 		log.Fatalf("Failed to load config: %v", err)
@@ -34,62 +38,45 @@ func main() {
 
 	cliPath := projectpath.Root + "/bin/TwitchDownloaderCLI"
 	outputDir := projectpath.Root + config.Downloader.OutputPath + runID
-
 	if err := os.MkdirAll(outputDir, 0755); err != nil {
 		log.Fatalf("Failed to create output directory: %v", err)
 	}
 
-	log.Printf("Run ID: %s\n", runID)
 	clipsData, err := scraper.Scrape(outputDir, runID)
 	if err != nil {
 		log.Fatalf("Scraper failed with error: %v", err)
 	}
 
 	if len(clipsData) == 0 {
-		log.Println("No clips found.")
+		log.Fatalf("No clips found.")
 	}
 
-	log.Println("Starting the download process...")
-	err = downloader.Downloader(runID, clipsData, cliPath, outputDir)
-	if err != nil {
+	if err := downloader.Downloader(runID, clipsData, cliPath, outputDir); err != nil {
 		log.Fatalf("Downloader failed with error: %v", err)
 	}
 
-	log.Println("Download process completed successfully.")
-
 	outputFile := outputDir + "/" + runID + ".mp4"
-	err = video.VideoCreator(clipsData, outputFile)
-	if err != nil {
+	if err := video.VideoCreator(clipsData, outputFile); err != nil {
 		log.Fatalf("Video concatenation failed: %v", err)
 	}
 
-	// Create Youtube Bio and save it
 	bio, err := video.CreateYoutubeBioText(clipsData)
 	if err != nil {
-		log.Fatalf("Failed to create Youtube bio: %v", err)
+		log.Fatalf("Failed to create YouTube bio: %v", err)
 	}
 
-	// Store all processed clip ids in the database
 	for _, clip := range clipsData {
-		err = db.SaveClipID(clip.ClipID)
-		if err != nil {
+		if err := db.SaveClipID(clip.ClipID); err != nil {
 			log.Fatalf("Database failed with error: %v", err)
 		}
 	}
 
-	// Add the run ID to the Run struct and save it to the output directory as a JSON file
-	run := Run{
-		RunID:     runID,
-		Config:    config,
-		ClipsData: clipsData,
-		Bio:       bio,
-	}
-
-	// Save run data to the output directory as a JSON file
+	run := Run{RunID: runID, Config: config, ClipsData: clipsData, Bio: bio}
 	jsonData, err := json.Marshal(run)
 	if err != nil {
 		log.Fatalf("Failed to marshal clips data: %v", err)
 	}
+
 	jsonFilePath := outputDir + "/run.json"
 	if err := os.WriteFile(jsonFilePath, jsonData, 0644); err != nil {
 		log.Fatalf("Failed to save JSON file: %v", err)

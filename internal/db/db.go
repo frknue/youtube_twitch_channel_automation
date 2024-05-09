@@ -152,3 +152,64 @@ func CleanUpDB() error {
 
 	return nil
 }
+
+// Create a lock to prevent multiple instances of the application from running concurrently
+func CreateLock() error {
+	// Open the Badger database located in the specified directory
+	db, err := badger.Open(badger.DefaultOptions("/tmp/badger"))
+	if err != nil {
+		log.Fatalf("Failed to open database: %v", err)
+	}
+	defer db.Close()
+
+	// Use Update function for transactional operation
+	err = db.Update(func(txn *badger.Txn) error {
+		_, err := txn.Get([]byte("lock"))
+		if err == badger.ErrKeyNotFound {
+			// Key not found, create the lock
+			e := badger.NewEntry([]byte("lock"), []byte("locked"))
+			err = txn.SetEntry(e)
+			if err != nil {
+				return err
+			}
+			log.Println("Lock created")
+		} else if err != nil {
+			return err
+		} else {
+			log.Println("Lock already exists")
+		}
+		return nil
+	})
+
+	if err != nil {
+		log.Fatalf("Failed to create lock: %v", err)
+	}
+
+	return nil
+}
+
+// Remove the lock to allow other instances of the application to run
+func RemoveLock() error {
+	// Open the Badger database located in the specified directory
+	db, err := badger.Open(badger.DefaultOptions("/tmp/badger"))
+	if err != nil {
+		log.Fatalf("Failed to open database: %v", err)
+	}
+	defer db.Close()
+
+	// Use Update function for transactional operation
+	err = db.Update(func(txn *badger.Txn) error {
+		err := txn.Delete([]byte("lock"))
+		if err != nil {
+			return err
+		}
+		log.Println("Lock removed")
+		return nil
+	})
+
+	if err != nil {
+		log.Fatalf("Failed to remove lock: %v", err)
+	}
+
+	return nil
+}
