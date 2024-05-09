@@ -2,6 +2,7 @@ package scraper
 
 import (
 	"encoding/json"
+	"fmt"
 	"log"
 	"os"
 	"testing"
@@ -43,6 +44,8 @@ func TestScraper(t *testing.T) {
 		log.Println("No clips found.")
 		return
 	}
+
+	fmt.Println("Clips length: ", len(clipsData))
 
 	// Add the run ID to the Run struct and save it to the output directory as a JSON file
 	run := Run{

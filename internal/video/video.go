@@ -17,7 +17,7 @@ func ReencodeVideo(inputFile, channelName string) error {
 		"ffmpeg",
 		"-i", inputFile,
 		"-c:v", "libx264", "-preset", "fast", "-crf", "22",
-		"-vf", fmt.Sprintf("scale=1920:1080,drawtext=text='%s':x=w-tw-10:y=h-th-10:fontcolor=white@0.8:fontsize=24:box=1:boxcolor=black@0.5:boxborderw=5", channelName),
+		"-vf", fmt.Sprintf("scale=1920:1080,drawtext=text='%s':x=w-tw-10:y=h-th-10:fontcolor=white@0.8:fontsize=40:box=1:boxcolor=black@0.5:boxborderw=5", channelName),
 		"-c:a", "aac", "-b:a", "192k",
 		tempOutputFile,
 	)

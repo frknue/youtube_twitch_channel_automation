@@ -42,31 +42,37 @@ func SaveClipID(clipID string) error {
 }
 
 // Check if the clip ID is already processed
-func CheckClipID(clipID string) (bool, error) {
+func CheckClipID(clipID string) bool {
 	// Open the Badger database located in the /tmp/badger directory.
 	db, err := badger.Open(badger.DefaultOptions("/tmp/badger"))
 	if err != nil {
-		log.Fatal(err)
+		log.Printf("Error opening database: %v", err)
+		return false // return false to indicate the failure of the database operation
 	}
 	defer db.Close()
 
 	// Use View function for read-only operation
+	found := false
 	err = db.View(func(txn *badger.Txn) error {
 		_, err := txn.Get([]byte(clipID))
 		if err == badger.ErrKeyNotFound {
 			log.Println("Clip ID not found")
-			return err
+			return nil // return nil to continue normally
+		}
+		if err != nil {
+			return err // return an actual error that might have occurred
 		}
 		log.Println("Clip ID found")
+		found = true // set found to true if no errors occurred and clip ID is found
 		return nil
 	})
 
 	if err != nil {
-		log.Fatal(err)
-		return false, err
+		log.Printf("Error checking clip ID: %v", err)
+		return false
 	}
 
-	return true, nil
+	return found
 }
 
 func PrintClipIDs() error {
@@ -100,6 +106,48 @@ func PrintClipIDs() error {
 
 	if err != nil {
 		log.Fatalf("Failed to iterate over database: %v", err)
+	}
+
+	return nil
+}
+
+func CleanUpDB() error {
+	// Open the Badger database located in the specified directory
+	db, err := badger.Open(badger.DefaultOptions("/tmp/badger"))
+	if err != nil {
+		log.Fatalf("Failed to open database: %v", err)
+	}
+	defer db.Close()
+
+	// Use Update function for transactional operation
+	err = db.Update(func(txn *badger.Txn) error {
+		opts := badger.DefaultIteratorOptions
+		opts.PrefetchSize = 10
+		it := txn.NewIterator(opts)
+		defer it.Close()
+
+		for it.Rewind(); it.Valid(); it.Next() {
+			item := it.Item()
+			key := item.Key()
+			err := item.Value(func(val []byte) error {
+				if string(val) == "processed" {
+					err := txn.Delete(key)
+					if err != nil {
+						return err
+					}
+					log.Printf("Deleted key: %s\n", key)
+				}
+				return nil
+			})
+			if err != nil {
+				return err
+			}
+		}
+		return nil
+	})
+
+	if err != nil {
+		log.Fatalf("Failed to clean up database: %v", err)
 	}
 
 	return nil

@@ -11,6 +11,7 @@ import (
 
 	"github.com/chromedp/chromedp"
 	"github.com/frknue/youtube_twitch_channel_automation/internal/config"
+	"github.com/frknue/youtube_twitch_channel_automation/internal/db"
 	"github.com/frknue/youtube_twitch_channel_automation/internal/projectpath"
 )
 
@@ -27,13 +28,15 @@ type Clip struct {
 	FileName        string
 	DurationSeconds float64
 	FilePath        string
+	ClipURL         string
+	ChannelURL      string
 }
 
 func getHTML(url string) (string, error) {
 	// Define the maximum number of retries
 	const maxRetries = 5
 	// Define the maximum number of scrolls
-	const maxScrolls = 4
+	const maxScrolls = 10
 	var html string
 	var err error
 
@@ -103,6 +106,7 @@ func getHTML(url string) (string, error) {
 }
 
 func getClipsData(html string, maxDurationInSeconds float64, outputDir string, runID string) []Clip {
+	fmt.Println(maxDurationInSeconds)
 	var clips []Clip
 	var totalDuration float64
 
@@ -130,19 +134,26 @@ func getClipsData(html string, maxDurationInSeconds float64, outputDir string, r
 
 		clipID := ExtractClipID(url)
 
+		// Check if the clip ID is already processed
+		if db.CheckClipID(clipID) {
+			log.Println("Clip ID already processed")
+			return
+		}
+
 		thumbnail, thumbExists := s.Find(".clip-thumbnail").Attr("src")
 		if !thumbExists {
 			thumbnail = "Thumbnail not found"
 		}
+
 		channel := s.Find(".clip-channel-name").Text()
 		duration := s.Find(".clip-duration").Text()
 		views := s.Find(".clip-views").Text()
 		created := s.Find(".clip-created").Text()
 		durationSeconds := ParseDuration(duration)
-
 		totalDuration += durationSeconds
-
 		filePath := outputDir + "/" + clipID + ".mp4"
+		clipURL := "https://clips.twitch.tv/" + clipID
+		channelURL := "https://www.twitch.tv/" + channel
 
 		// Append the details to the clips slice
 		clips = append(clips, Clip{
@@ -158,6 +169,8 @@ func getClipsData(html string, maxDurationInSeconds float64, outputDir string, r
 			FileName:        fileName + ".mp4",
 			DurationSeconds: durationSeconds,
 			FilePath:        filePath,
+			ClipURL:         clipURL,
+			ChannelURL:      channelURL,
 		})
 	})
 	log.Printf("Total duration of clips: %.2f seconds\n", totalDuration)

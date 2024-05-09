@@ -5,5 +5,5 @@ scraper:
   twitch_tracker:
     url: "https://twitchtracker.com/games"
     game_id: "538054672"
-    time_start: "20240330"
-    time_end: "20240406"
+    time_start: "20240505"
+    time_end: "20240509"

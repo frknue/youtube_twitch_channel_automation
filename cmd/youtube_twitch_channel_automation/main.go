@@ -18,6 +18,7 @@ type Run struct {
 	RunID     string
 	Config    *config.Config
 	ClipsData []scraper.Clip
+	Bio       string
 }
 
 func main() {
@@ -48,11 +49,40 @@ func main() {
 		log.Println("No clips found.")
 	}
 
+	log.Println("Starting the download process...")
+	err = downloader.Downloader(runID, clipsData, cliPath, outputDir)
+	if err != nil {
+		log.Fatalf("Downloader failed with error: %v", err)
+	}
+
+	log.Println("Download process completed successfully.")
+
+	outputFile := outputDir + "/" + runID + ".mp4"
+	err = video.VideoCreator(clipsData, outputFile)
+	if err != nil {
+		log.Fatalf("Video concatenation failed: %v", err)
+	}
+
+	// Create Youtube Bio and save it
+	bio, err := video.CreateYoutubeBioText(clipsData)
+	if err != nil {
+		log.Fatalf("Failed to create Youtube bio: %v", err)
+	}
+
+	// Store all processed clip ids in the database
+	for _, clip := range clipsData {
+		err = db.SaveClipID(clip.ClipID)
+		if err != nil {
+			log.Fatalf("Database failed with error: %v", err)
+		}
+	}
+
 	// Add the run ID to the Run struct and save it to the output directory as a JSON file
 	run := Run{
 		RunID:     runID,
 		Config:    config,
 		ClipsData: clipsData,
+		Bio:       bio,
 	}
 
 	// Save run data to the output directory as a JSON file
@@ -64,28 +94,5 @@ func main() {
 	if err := os.WriteFile(jsonFilePath, jsonData, 0644); err != nil {
 		log.Fatalf("Failed to save JSON file: %v", err)
 	}
-
 	log.Printf("Saved %d clips to %s.\n", len(clipsData), jsonFilePath)
-	log.Println("Starting the download process...")
-	err = downloader.Downloader(runID, clipsData, cliPath, outputDir)
-	if err != nil {
-		log.Fatalf("Downloader failed with error: %v", err)
-	}
-
-	log.Println("Download process completed successfully.")
-
-	outputFile := outputDir + "/" + runID + ".mp4"
-	err = video.VideoCreator(clipsData, outputFile)
-
-	if err != nil {
-		log.Fatalf("Video concatenation failed: %v", err)
-	}
-
-	// Store all processed clip ids in the database
-	for _, clip := range clipsData {
-		err = db.SaveClipID(clip.ClipID)
-		if err != nil {
-			log.Fatalf("Database failed with error: %v", err)
-		}
-	}
 }

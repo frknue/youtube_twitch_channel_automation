@@ -15,16 +15,20 @@ func TestSaveClipID(t *testing.T) {
 }
 
 func TestCheckClipID(t *testing.T) {
-	clipID := "129e1"
-	hasClip, err := CheckClipID(clipID)
+	clipID := "test"
+	hasClip := CheckClipID(clipID)
 	fmt.Println("hasClip: ", hasClip)
+}
+
+func TestPrintClipIDs(t *testing.T) {
+	err := PrintClipIDs()
 	if err != nil {
 		fmt.Println(err)
 	}
 }
 
-func TestPrintClipIDs(t *testing.T) {
-	err := PrintClipIDs()
+func TestCleanUpDB(t *testing.T) {
+	err := CleanUpDB()
 	if err != nil {
 		fmt.Println(err)
 	}
