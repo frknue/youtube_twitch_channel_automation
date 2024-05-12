@@ -9,7 +9,7 @@ import (
 )
 
 // CreateYoutubeBioText generates a YouTube bio text from clips data in JSON format.
-func CreateYoutubeBioText(clipsData []scraper.Clip) (string, error) {
+func CreateVideoDescription(clipsData []scraper.Clip) (string, error) {
 	// Greeting message.
 	greeting := "Welcome to our YouTube channel!"
 
@@ -43,14 +43,14 @@ func CreateYoutubeBioText(clipsData []scraper.Clip) (string, error) {
 	callToAction := "Don't forget to subscribe and hit that like button for more awesome content!"
 
 	// Combine all parts into the final bio.
-	bio := fmt.Sprintf("%s\n\nChannels to check out:\n%s\n\nClips used in this video:\n%s\n\n%s", greeting, urlsList, clipsList, callToAction)
+	description := fmt.Sprintf("%s\n\nChannels to check out:\n%s\n\nClips used in this video:\n%s\n\n%s", greeting, urlsList, clipsList, callToAction)
 
 	// Convert the bio text to a JSON object.
-	bioData := map[string]string{"bio": bio}
-	bioJSON, err := json.Marshal(bioData)
+	descriptionData := map[string]string{"description": description}
+	descriptionJSON, err := json.Marshal(descriptionData)
 	if err != nil {
 		return "", err
 	}
 
-	return string(bioJSON), nil
+	return string(descriptionJSON), nil
 }

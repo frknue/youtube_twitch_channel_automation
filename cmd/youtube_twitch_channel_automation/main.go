@@ -60,7 +60,7 @@ func main() {
 		log.Fatalf("Video concatenation failed: %v", err)
 	}
 
-	bio, err := video.CreateYoutubeBioText(clipsData)
+	videoDescription, err := video.CreateVideoDescription(clipsData)
 	if err != nil {
 		log.Fatalf("Failed to create YouTube bio: %v", err)
 	}
@@ -71,7 +71,7 @@ func main() {
 		}
 	}
 
-	run := Run{RunID: runID, Config: config, ClipsData: clipsData, Bio: bio}
+	run := Run{RunID: runID, Config: config, ClipsData: clipsData, VideoDescription: videoDescription}
 	jsonData, err := json.Marshal(run)
 	if err != nil {
 		log.Fatalf("Failed to marshal clips data: %v", err)
