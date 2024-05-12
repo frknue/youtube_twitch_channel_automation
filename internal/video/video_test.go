@@ -1,9 +1,9 @@
 package video
 
-// import (
-// 	"fmt"
-// 	"testing"
-// )
+import (
+	"fmt"
+	"testing"
+)
 
 // // TestConcatenateVideos function tests the ConcatenateVideos function to ensure it works as expected.
 // func TestConcatenateVideos(t *testing.T) {
@@ -42,3 +42,24 @@ package video
 // 		fmt.Println(err)
 // 	}
 // }
+
+func TestCreateVideoTitle(t *testing.T) {
+	gameID := "538054672"
+
+	videoTitle, videoEpisode, err := CreateVideoTitle(gameID)
+	if err != nil {
+		fmt.Println(err)
+	}
+
+	fmt.Println("Video title:", videoTitle)
+	fmt.Println("Video episode:", videoEpisode)
+}
+
+func TestGetGameTitleByID(t *testing.T) {
+	gameID := "538054672"
+	gameTitle, err := GetGameTitleByID(gameID)
+	if err != nil {
+		fmt.Println(err)
+	}
+	fmt.Println("Game title:", gameTitle)
+}

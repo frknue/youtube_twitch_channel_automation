@@ -1,10 +1,15 @@
 package video
 
 import (
+	"bufio"
 	"encoding/json"
+	"errors"
 	"fmt"
+	"os"
 	"strings"
 
+	"github.com/frknue/youtube_twitch_channel_automation/internal/db"
+	"github.com/frknue/youtube_twitch_channel_automation/internal/projectpath"
 	"github.com/frknue/youtube_twitch_channel_automation/internal/scraper"
 )
 
@@ -53,4 +58,66 @@ func CreateVideoDescription(clipsData []scraper.Clip) (string, error) {
 	}
 
 	return string(descriptionJSON), nil
+}
+
+// GetGameTitleByID reads the 'games_list.list' file and returns the game title by the gameID.
+func GetGameTitleByID(gameID string) (string, error) {
+	gamesListPath := projectpath.Root + "/configs/games_list.list"
+
+	file, err := os.Open(gamesListPath)
+	if err != nil {
+		return "", err
+	}
+	defer file.Close()
+
+	scanner := bufio.NewScanner(file)
+	for scanner.Scan() {
+		line := scanner.Text()
+		parts := strings.Split(line, "=")
+		if len(parts) != 2 {
+			continue // Skip malformed lines
+		}
+
+		id := strings.TrimSpace(parts[0])
+		title := strings.Trim(parts[1], "\"")
+
+		if id == gameID {
+			return title, nil
+		}
+	}
+
+	if err := scanner.Err(); err != nil {
+		return "", err
+	}
+
+	return "", errors.New("game ID not found")
+}
+
+// CreateVideoTitle generates a video title based on the latest episode number.
+func CreateVideoTitle(gameID string) (string, int, error) {
+	// Get the game title by game ID
+	gameTitle, err := GetGameTitleByID(gameID)
+
+	e, err := db.GetLatestEpisodeByGameID(gameID)
+	if err != nil {
+		return gameTitle, 1, err
+	}
+
+	// Increment the episode number by 1
+	episode := e + 1
+
+	// Format the video title with the game title and episode number.
+	videoTitle := fmt.Sprintf("%s MOST VIEWED Twitch Clips #%d", gameTitle, episode)
+
+	return videoTitle, episode, nil
+}
+
+// Creating video Tags (static for now, but can be dynamic in the future)
+func CreateVideoTags() []string {
+	return []string{"twitch", "twitch clips", "twitch highlights", "gaming", "twitch moments"}
+}
+
+// Creating video category (static for now, but can be dynamic in the future)
+func CreateVideoCategory() string {
+	return "22"
 }

@@ -8,8 +8,9 @@ import (
 
 // Config holds all the configuration for the application.
 type Config struct {
-	Scraper     ScraperConfig     `yaml:"scraper"`
-	Downloader  DownloaderConfig  `yaml:"downloader"`
+	Scraper    ScraperConfig    `yaml:"scraper"`
+	Downloader DownloaderConfig `yaml:"downloader"`
+	Setup      SetupConfig      `yaml:"setup"`
 }
 
 // ScraperConfig holds the configuration for the scraper part of the application.
@@ -27,8 +28,12 @@ type TwitchTrackerConfig struct {
 
 // DownloaderConfig holds the configuration for the downloader part of the application.
 type DownloaderConfig struct {
-	OutputPath  string `yaml:"output_path"`
+	OutputPath           string  `yaml:"output_path"`
 	MaxDurationInSeconds float64 `yaml:"max_duration_in_seconds"`
+}
+
+type SetupConfig struct {
+	DB_URL string `yaml:"db_url"`
 }
 
 // LoadConfig reads configuration from the specified file path and unmarshals it into Config struct.

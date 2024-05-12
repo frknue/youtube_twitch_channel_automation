@@ -7,3 +7,5 @@ scraper:
     game_id: "538054672"
     time_start: "20240505"
     time_end: "20240509"
+setup:
+  db_url: "mongodb://localhost:27017"

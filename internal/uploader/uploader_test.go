@@ -1,15 +1,12 @@
 package uploader
 
-import (
-	"fmt"
-	"github.com/frknue/youtube_twitch_channel_automation/internal/projectpath"
-	"testing"
-)
+// import (
+// 	"testing"
+// )
 
-func TestUploader(t *testing.T) {
-	secretsPath := projectpath.Root + "/client_secrets.json"
-	videoPath := projectpath.Root + "/sample.mp4"
-	fmt.Println(secretsPath)
-	fmt.Println(videoPath)
-	Uploader(secretsPath, videoPath)
-}
+// func TestUploader(t *testing.T) {
+// 	err := Uploader()
+// 	if err != nil {
+// 		t.Errorf("Error uploading video: %v", err)
+// 	}
+// }

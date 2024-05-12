@@ -1,41 +1,46 @@
 package db
 
 import (
+	"context"
 	"fmt"
-	"log"
-
 	badger "github.com/dgraph-io/badger/v4"
+	"go.mongodb.org/mongo-driver/bson"
+	"go.mongodb.org/mongo-driver/mongo"
+	"go.mongodb.org/mongo-driver/mongo/options"
+	"log"
+	"time"
 )
 
 func SaveClipID(clipID string) error {
-	// Open the Badger database located in the /tmp/badger directory.
-	db, err := badger.Open(badger.DefaultOptions("/tmp/badger"))
+	// Set client options and connect to MongoDB
+	clientOptions := options.Client().ApplyURI("mongodb://localhost:27017")
+	client, err := mongo.Connect(context.TODO(), clientOptions)
 	if err != nil {
 		log.Fatal(err)
 	}
-	defer db.Close()
+	defer client.Disconnect(context.TODO())
 
-	// Use Update function for transactional operation
-	err = db.Update(func(txn *badger.Txn) error {
-		_, err := txn.Get([]byte(clipID))
-		if err == badger.ErrKeyNotFound {
-			// Key not found, process the clip
-			e := badger.NewEntry([]byte(clipID), []byte("processed"))
-			err = txn.SetEntry(e)
-			if err != nil {
-				return err
-			}
-			log.Println("Clip ID processed and stored")
-		} else if err != nil {
+	// Connect to the database and collection
+	collection := client.Database("youtube_twitch_channel_automation").Collection("clips")
+
+	// Check if the clipID already exists
+	var result bson.M
+	err = collection.FindOne(context.TODO(), bson.M{"clipID": clipID}).Decode(&result)
+	if err == mongo.ErrNoDocuments {
+		// Document not found, insert new document
+		_, err := collection.InsertOne(context.TODO(), bson.M{
+			"clipID": clipID,
+			"status": "processed",
+			"time":   time.Now(),
+		})
+		if err != nil {
 			return err
-		} else {
-			log.Println("Clip ID already processed")
 		}
-		return nil
-	})
-
-	if err != nil {
-		log.Fatal(err)
+		log.Println("Clip ID processed and stored")
+	} else if err != nil {
+		return err
+	} else {
+		log.Println("Clip ID already processed")
 	}
 
 	return nil
@@ -43,114 +48,120 @@ func SaveClipID(clipID string) error {
 
 // Check if the clip ID is already processed
 func CheckClipID(clipID string) bool {
-	// Open the Badger database located in the /tmp/badger directory.
-	db, err := badger.Open(badger.DefaultOptions("/tmp/badger"))
+	// Set client options and connect to MongoDB
+	clientOptions := options.Client().ApplyURI("mongodb://localhost:27017")
+	client, err := mongo.Connect(context.TODO(), clientOptions)
 	if err != nil {
-		log.Printf("Error opening database: %v", err)
-		return false // return false to indicate the failure of the database operation
-	}
-	defer db.Close()
-
-	// Use View function for read-only operation
-	found := false
-	err = db.View(func(txn *badger.Txn) error {
-		_, err := txn.Get([]byte(clipID))
-		if err == badger.ErrKeyNotFound {
-			log.Println("Clip ID not found")
-			return nil // return nil to continue normally
-		}
-		if err != nil {
-			return err // return an actual error that might have occurred
-		}
-		log.Println("Clip ID found")
-		found = true // set found to true if no errors occurred and clip ID is found
-		return nil
-	})
-
-	if err != nil {
-		log.Printf("Error checking clip ID: %v", err)
+		log.Printf("Error connecting to MongoDB: %v", err)
 		return false
 	}
+	defer client.Disconnect(context.TODO())
 
-	return found
+	// Connect to the database and collection
+	collection := client.Database("youtube_twitch_channel_automation").Collection("clips")
+
+	// Check if the clipID already exists
+	var result bson.M
+	err = collection.FindOne(context.TODO(), bson.M{"clipID": clipID}).Decode(&result)
+	if err == mongo.ErrNoDocuments {
+		log.Println("Clip ID not found")
+		return false // Clip ID not found
+	} else if err != nil {
+		log.Printf("Error checking clip ID: %v", err)
+		return false // An error occurred during the operation
+	}
+
+	log.Println("Clip ID found")
+	return true // Clip ID exists
 }
 
-func PrintClipIDs() error {
-	// Open the Badger database located in the specified directory
-	db, err := badger.Open(badger.DefaultOptions("/tmp/badger"))
+// SaveVideoData saves the Run data to the "video" collection in MongoDB
+func SaveVideoData(video interface{}) error {
+	clientOptions := options.Client().ApplyURI("mongodb://localhost:27017")
+	client, err := mongo.Connect(context.TODO(), clientOptions)
 	if err != nil {
-		log.Fatalf("Failed to open database: %v", err)
+		log.Fatalf("Failed to get MongoDB client: %v", err)
+		return err
 	}
-	defer db.Close()
+	defer client.Disconnect(context.Background())
 
-	// Iterate over all key-value pairs in the database
-	err = db.View(func(txn *badger.Txn) error {
-		opts := badger.DefaultIteratorOptions
-		opts.PrefetchSize = 10
-		it := txn.NewIterator(opts)
-		defer it.Close()
+	// Get a handle for your collection
+	collection := client.Database("youtube_twitch_channel_automation").Collection("video")
 
-		for it.Rewind(); it.Valid(); it.Next() {
-			item := it.Item()
-			key := item.Key()
-			err := item.Value(func(val []byte) error {
-				fmt.Printf("Key: %s, Value: %s\n", key, val)
-				return nil
-			})
-			if err != nil {
-				return err
-			}
-		}
-		return nil
-	})
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
 
+	// Inserting the video data into the video collection
+	result, err := collection.InsertOne(ctx, video)
 	if err != nil {
-		log.Fatalf("Failed to iterate over database: %v", err)
+		log.Printf("Could not insert video into video collection: %v", err)
+		return err
 	}
 
+	fmt.Printf("Inserted document with ID: %v\n", result.InsertedID)
 	return nil
 }
 
-func CleanUpDB() error {
-	// Open the Badger database located in the specified directory
-	db, err := badger.Open(badger.DefaultOptions("/tmp/badger"))
+func GetLatestEpisodeByGameID(gameID string) (int, error) {
+	clientOptions := options.Client().ApplyURI("mongodb://localhost:27017")
+	client, err := mongo.Connect(context.TODO(), clientOptions)
 	if err != nil {
-		log.Fatalf("Failed to open database: %v", err)
+		log.Fatalf("Failed to get MongoDB client: %v", err)
+		return 0, err
 	}
-	defer db.Close()
+	defer client.Disconnect(context.Background())
 
-	// Use Update function for transactional operation
-	err = db.Update(func(txn *badger.Txn) error {
-		opts := badger.DefaultIteratorOptions
-		opts.PrefetchSize = 10
-		it := txn.NewIterator(opts)
-		defer it.Close()
+	collection := client.Database("youtube_twitch_channel_automation").Collection("video")
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
 
-		for it.Rewind(); it.Valid(); it.Next() {
-			item := it.Item()
-			key := item.Key()
-			err := item.Value(func(val []byte) error {
-				if string(val) == "processed" {
-					err := txn.Delete(key)
-					if err != nil {
-						return err
-					}
-					log.Printf("Deleted key: %s\n", key)
-				}
-				return nil
-			})
-			if err != nil {
-				return err
-			}
-		}
-		return nil
-	})
-
+	// Define filter query for fetching the specific document
+	filter := bson.D{{"gameid", gameID}} // Make sure the field name is exactly as in MongoDB
+	// Find a single document from the video collection
+	var result bson.M
+	err = collection.FindOne(ctx, filter).Decode(&result)
 	if err != nil {
-		log.Fatalf("Failed to clean up database: %v", err)
+		log.Printf("Could not find document: %v", err)
+		return 0, err
 	}
 
-	return nil
+	episodeNumber, ok := result["videoepisode"].(int32)
+	if !ok {
+		log.Println("Failed to assert episode as int32")
+		return 0, fmt.Errorf("episode field is not of type int32")
+	}
+	episode := int(episodeNumber)
+
+	return episode, nil
+}
+
+// GetLatestVideoByGameID fetches the latest video document by game ID from the MongoDB collection
+func GetLatestVideoByGameID(gameID string) (bson.M, error) {
+	clientOptions := options.Client().ApplyURI("mongodb://localhost:27017")
+	client, err := mongo.Connect(context.TODO(), clientOptions)
+	if err != nil {
+		log.Fatalf("Failed to get MongoDB client: %v", err)
+		return nil, err
+	}
+	defer client.Disconnect(context.Background())
+
+	collection := client.Database("youtube_twitch_channel_automation").Collection("video")
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	// Define filter query for fetching the specific document
+	filter := bson.D{{"gameid", gameID}}
+
+	// Find a single document from the video collection
+	var result bson.M
+	err = collection.FindOne(ctx, filter).Decode(&result)
+	if err != nil {
+		log.Printf("Could not find document: %v", err)
+		return nil, err
+	}
+
+	fmt.Println("Found document:", result)
+	return result, nil
 }
 
 // Create a lock to prevent multiple instances of the application from running concurrently
