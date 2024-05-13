@@ -28,7 +28,7 @@ func Upload(filePath string, videoTitle string, videoDescription string, videoTa
 		"--description", videoDescription,
 		"--keywords", tags,
 		"--category", videoCategory,
-		"--privacyStatus", "private",
+		"--privacyStatus", "public",
 	}
 
 	// Create the command with the Python interpreter and the arguments

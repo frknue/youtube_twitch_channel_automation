@@ -2,7 +2,6 @@ package video
 
 import (
 	"bufio"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"os"
@@ -13,19 +12,19 @@ import (
 	"github.com/frknue/youtube_twitch_channel_automation/internal/scraper"
 )
 
-// CreateYoutubeBioText generates a YouTube bio text from clips data in JSON format.
-func CreateVideoDescription(clipsData []scraper.Clip) (string, error) {
+// CreateVideoDescription generates a video description text from clips data.
+func CreateVideoDescription(clipsData []scraper.Clip) string {
 	// Greeting message.
 	greeting := "Welcome to our YouTube channel!"
 
 	// Create a set to collect unique Twitch channel URLs.
 	channelURLs := make(map[string]bool)
-	clipURLs := make(map[string]string) // A map to hold unique clip URLs and their titles
+	var clipURLs []string // A list to hold unique clip URLs
 
 	for _, clip := range clipsData {
 		channelURL := clip.ChannelURL
 		channelURLs[channelURL] = true
-		clipURLs[clip.URL] = clip.Title // Assuming clip.URL is the unique URL for each clip and clip.Title for the clip title
+		clipURLs = append(clipURLs, clip.ClipURL) // Using ClipURL which is the correct field
 	}
 
 	// Compile all unique Twitch channel URLs into a list.
@@ -37,27 +36,17 @@ func CreateVideoDescription(clipsData []scraper.Clip) (string, error) {
 	urlsList := strings.Join(urls, "\n")
 
 	// Compile clip URLs into a readable list format.
-	var clipLinks []string
-	for url, title := range clipURLs {
-		clipLinks = append(clipLinks, fmt.Sprintf("%s - %s", title, url))
-	}
+	clipLinks := append([]string{"Clips used in this video:"}, clipURLs...)
 	// Convert list of clip URLs to a single string.
 	clipsList := strings.Join(clipLinks, "\n")
 
 	// Call to subscribe and like.
 	callToAction := "Don't forget to subscribe and hit that like button for more awesome content!"
 
-	// Combine all parts into the final bio.
-	description := fmt.Sprintf("%s\n\nChannels to check out:\n%s\n\nClips used in this video:\n%s\n\n%s", greeting, urlsList, clipsList, callToAction)
+	// Combine all parts into the final description.
+	description := fmt.Sprintf("%s\n\nChannels to check out:\n%s\n\n%s\n\n%s", greeting, urlsList, clipsList, callToAction)
 
-	// Convert the bio text to a JSON object.
-	descriptionData := map[string]string{"description": description}
-	descriptionJSON, err := json.Marshal(descriptionData)
-	if err != nil {
-		return "", err
-	}
-
-	return string(descriptionJSON), nil
+	return description
 }
 
 // GetGameTitleByID reads the 'games_list.list' file and returns the game title by the gameID.
@@ -100,7 +89,7 @@ func CreateVideoTitle(gameID string) (string, int, error) {
 
 	e, err := db.GetLatestEpisodeByGameID(gameID)
 	if err != nil {
-		return gameTitle, 1, err
+		return fmt.Sprintf("%s MOST VIEWED Twitch Clips #%d", gameTitle, e+1), e + 1, err
 	}
 
 	// Increment the episode number by 1
@@ -119,5 +108,5 @@ func CreateVideoTags() []string {
 
 // Creating video category (static for now, but can be dynamic in the future)
 func CreateVideoCategory() string {
-	return "22"
+	return "20"
 }

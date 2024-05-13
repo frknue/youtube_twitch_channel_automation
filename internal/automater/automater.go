@@ -70,22 +70,12 @@ func Automate() {
 
 	// Create YouTube video title
 	videoTitle, videoEpisode, err := video.CreateVideoTitle(gameID)
-
 	// Create YouTube video description
-	videoDescription, err := video.CreateVideoDescription(clipsData)
-	if err != nil {
-		log.Fatalf("Failed to create YouTube bio: %v", err)
-	}
-
+	videoDescription := video.CreateVideoDescription(clipsData)
+	// Create YouTube video tags
 	videoTags := video.CreateVideoTags()
+	// Create YouTube video category
 	videoCategory := video.CreateVideoCategory()
-
-	// Save clip IDs to the database
-	for _, clip := range clipsData {
-		if err := db.SaveClipID(clip.ClipID); err != nil {
-			log.Fatalf("Database failed with error: %v", err)
-		}
-	}
 
 	// Save the run data to a JSON file
 	run := Video{RunID: runID, GameID: gameID, Config: config, ClipsData: clipsData, VideoTitle: videoTitle, VideoDescription: videoDescription, VideoEpisode: videoEpisode, VideoTags: videoTags, VideoCategory: videoCategory}
@@ -104,6 +94,13 @@ func Automate() {
 	//Upload the video to YouTube
 	if err := uploader.Upload(outputFile, videoTitle, videoDescription, videoTags, videoCategory); err != nil {
 		log.Fatalf("Failed to upload video: %v", err)
+	}
+
+	// Save clip IDs to the database
+	for _, clip := range clipsData {
+		if err := db.SaveClipID(clip.ClipID); err != nil {
+			log.Fatalf("Database failed with error: %v", err)
+		}
 	}
 
 	// Save run data to the database
