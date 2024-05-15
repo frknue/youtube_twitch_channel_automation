@@ -117,9 +117,13 @@ func GetLatestEpisodeByGameID(gameID string) (int, error) {
 
 	// Define filter query for fetching the specific document
 	filter := bson.D{{"gameid", gameID}} // Make sure the field name is exactly as in MongoDB
-	// Find a single document from the video collection
+
+	// Define the sorting order - descending by 'videoepisode'
+	options := options.FindOne().SetSort(bson.D{{"videoepisode", -1}})
+
+	// Find a single document from the video collection with the highest 'videoepisode'
 	var result bson.M
-	err = collection.FindOne(ctx, filter).Decode(&result)
+	err = collection.FindOne(ctx, filter, options).Decode(&result)
 	if err != nil {
 		log.Printf("Could not find document: %v", err)
 		return 0, err
