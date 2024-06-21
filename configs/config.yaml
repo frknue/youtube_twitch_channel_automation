@@ -4,8 +4,8 @@ downloader:
 scraper:
   twitch_tracker:
     url: "https://twitchtracker.com/games"
-    game_id: "538054672"
-    time_start: "20240513"
-    time_end: "20240515"
+    game_id: "516575"
+    time_start: "20240608"
+    time_end: "20240610"
 setup:
   db_url: "mongodb://localhost:27017"
